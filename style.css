@@ -1,0 +1,11 @@
+body{
+    background-color: black;
+    position: relative;
+}
+.player{
+    color: white;
+    font-size: 32px;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
