@@ -1,4 +1,4 @@
-body{
+body {
     background-color: black;
     position: relative;
     display: flex;
@@ -7,7 +7,8 @@ body{
     height: 100vh;
     margin: 0;
 }
-.player{
+
+.player {
     width: 22px;
     height: 22px;
     background-color: rgb(228, 15, 15);
@@ -15,18 +16,31 @@ body{
     left: 0;
     top: 0;
 }
-.ground{
+
+.ground {
     position: relative;
     width: 800px;
     height: 600px;
     border: 5px solid gray;
     background-color: #111;
 }
-.obstacle{
+
+.obstacle {
     position: absolute;
     width: 100px;
     height: 20px;
     background-color: rgb(255, 255, 255);
+}
+
+/* Position each obstacle individually */
+#obstacle1 {
     left: 200px;
     top: 550px;
 }
+
+#obstacle2 {
+    left: 400px;
+    top: 500px;
+}
+
+/* Add more obstacles here with their own positions */

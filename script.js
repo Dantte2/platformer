@@ -1,9 +1,11 @@
 const player = document.getElementById("player");
 const ground = document.getElementById("ground");
-const obstacle = document.getElementById("obstacle");
+
+// Collect all obstacles dynamically from the DOM by class
+const obstacles = Array.from(document.getElementsByClassName("obstacle"));
 
 let playerX = 0, playerY = 0, speed = 5;
-let isLeftPressed = false, isRightPressed = false, isDownPressed = false, isUpPressed = false;
+let isLeftPressed = false, isRightPressed = false;
 
 const gravity = 0.5;
 let velocityY = 0;
@@ -13,105 +15,118 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function isColliding(r1, r2) {
-  return !(
-    r1.right < r2.left ||
-    r1.left > r2.right ||
-    r1.bottom < r2.top ||
-    r1.top > r2.bottom
-  );
-}
+function isOnGroundOrObstacle() {
+  const playerBottom = playerY + player.offsetHeight;
+  const groundTop = ground.clientHeight;
 
-function getMaxY() {
-  return ground.clientHeight - player.offsetHeight;
+  // Check if on ground (within 1 pixel tolerance)
+  if (playerBottom >= groundTop - 1) {
+    return true;
+  }
+
+  // Check all obstacles if player is "standing" on them with a little margin (5px)
+  for (const obs of obstacles) {
+    const obsTop = obs.offsetTop;
+    const obsLeft = obs.offsetLeft;
+    const obsRight = obsLeft + obs.offsetWidth;
+
+    if (
+      playerBottom >= obsTop - 5 &&  // Allow standing slightly above obstacle top
+      playerBottom <= obsTop + 5 &&  // And not too far below
+      playerX + player.offsetWidth > obsLeft &&
+      playerX < obsRight
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function loop() {
-    const groundHeight = ground.clientHeight;
-    const playerWidth = player.offsetWidth;
-    const playerHeight = player.offsetHeight;
-    const maxX = ground.clientWidth - playerWidth;
-    const maxY = groundHeight - playerHeight;
+  const groundHeight = ground.clientHeight;
+  const playerWidth = player.offsetWidth;
+  const playerHeight = player.offsetHeight;
+  const maxX = ground.clientWidth - playerWidth;
+  const maxY = groundHeight - playerHeight;
 
-    // Apply horizontal movement
-    if (isRightPressed) playerX = clamp(playerX + speed, 0, maxX);
-    if (isLeftPressed) playerX = clamp(playerX - speed, 0, maxX);
+  // Apply horizontal movement
+  if (isRightPressed) playerX = clamp(playerX + speed, 0, maxX);
+  if (isLeftPressed) playerX = clamp(playerX - speed, 0, maxX);
 
-    // Apply gravity
-    velocityY += gravity;
-    let nextPlayerY = playerY + velocityY;
+  // Apply gravity
+  velocityY += gravity;
+  let nextPlayerY = playerY + velocityY;
 
-    // Get obstacle and positions
-    const obstacleTop = obstacle.offsetTop;
-    const obstacleLeft = obstacle.offsetLeft;
-    const obstacleRight = obstacleLeft + obstacle.offsetWidth;
-    const obstacleBottom = obstacleTop + obstacle.offsetHeight;
+  // Player rectangle for collision
+  const playerLeft = playerX;
+  const playerRight = playerX + playerWidth;
 
-    const playerLeft = playerX;
-    const playerRight = playerX + playerWidth;
-    const nextPlayerBottom = nextPlayerY + playerHeight;
+  // First, check collision with all obstacles
+  let collidedOnTop = false;
+  for (const obs of obstacles) {
+    const obsTop = obs.offsetTop;
+    const obsLeft = obs.offsetLeft;
+    const obsRight = obsLeft + obs.offsetWidth;
+    const obsBottom = obsTop + obs.offsetHeight;
 
-    const isAboveObstacle =
-        playerY + playerHeight <= obstacleTop &&
-        nextPlayerBottom >= obstacleTop &&
-        playerRight > obstacleLeft &&
-        playerLeft < obstacleRight &&
-        velocityY > 0;
-
-    if (isAboveObstacle) {
-        // Stop falling exactly on top of obstacle
-        playerY = obstacleTop - playerHeight;
-        velocityY = 0;
-    } else {
-        // Normal fall
-        playerY = nextPlayerY;
+    // Landing on top
+    if (
+      playerY + playerHeight <= obsTop &&
+      nextPlayerY + playerHeight >= obsTop &&
+      playerRight > obsLeft &&
+      playerLeft < obsRight &&
+      velocityY > 0
+    ) {
+      nextPlayerY = obsTop - playerHeight;
+      velocityY = 0;
+      collidedOnTop = true;
+      break;  // Stop checking further obstacles once landed on one
     }
 
-    // Floor collision
-    if (playerY > maxY) {
-        playerY = maxY;
-        velocityY = 0;
+    // Hitting underside of obstacle (head bump)
+    if (
+      playerY >= obsBottom &&
+      nextPlayerY <= obsBottom &&
+      playerRight > obsLeft &&
+      playerLeft < obsRight &&
+      velocityY < 0
+    ) {
+      velocityY = 0;
+      nextPlayerY = obsBottom;
+      break;
     }
+  }
 
-    // Update position
-    player.style.left = Math.round(playerX) + "px";
-    player.style.top = Math.round(playerY) + "px";
+  // Floor collision
+  if (nextPlayerY > maxY) {
+    nextPlayerY = maxY;
+    velocityY = 0;
+    collidedOnTop = true;
+  }
 
-    requestAnimationFrame(loop);
-}
+  playerY = nextPlayerY;
 
-function isOnGroundOrObstacle() {
-    const playerBottom = playerY + player.offsetHeight;
-    const onGround = Math.abs(playerBottom - ground.clientHeight) < 1;
+  // Update position
+  player.style.left = Math.round(playerX) + "px";
+  player.style.top = Math.round(playerY) + "px";
 
-    const obstacleTop = obstacle.offsetTop;
-    const obstacleLeft = obstacle.offsetLeft;
-    const obstacleRight = obstacleLeft + obstacle.offsetWidth;
-
-    const onObstacle =
-        Math.abs(playerBottom - obstacleTop) < 1 &&
-        playerX + player.offsetWidth > obstacleLeft &&
-        playerX < obstacleRight;
-
-    return onGround || onObstacle;
+  requestAnimationFrame(loop);
 }
 
 document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") isRightPressed = true;
-    if (e.key === "ArrowLeft") isLeftPressed = true;
-    if (e.key === "ArrowDown") isDownPressed = true;
-    if (e.key === "ArrowUp") {
-        if (isOnGroundOrObstacle()) {
-            velocityY = -jumpStrength;
-        }
+  if (e.key === "ArrowRight") isRightPressed = true;
+  if (e.key === "ArrowLeft") isLeftPressed = true;
+  if (e.key === "ArrowUp") {
+    if (isOnGroundOrObstacle()) {
+      velocityY = -jumpStrength;
     }
+  }
 });
 
 document.addEventListener("keyup", (e) => {
   if (e.key === "ArrowRight") isRightPressed = false;
   if (e.key === "ArrowLeft") isLeftPressed = false;
-  if (e.key === "ArrowDown") isDownPressed = false;
-  if (e.key === "ArrowUp") isUpPressed = false;
 });
 
 loop();
