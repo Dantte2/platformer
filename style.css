@@ -1,11 +1,32 @@
 body{
     background-color: black;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
 }
 .player{
-    color: white;
-    font-size: 32px;
+    width: 22px;
+    height: 22px;
+    background-color: rgb(228, 15, 15);
     position: absolute;
     left: 0;
     top: 0;
+}
+.ground{
+    position: relative;
+    width: 800px;
+    height: 600px;
+    border: 5px solid gray;
+    background-color: #111;
+}
+.obstacle{
+    position: absolute;
+    width: 100px;
+    height: 20px;
+    background-color: rgb(255, 255, 255);
+    left: 200px;
+    top: 550px;
 }
