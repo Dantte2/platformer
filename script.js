@@ -10,9 +10,33 @@ const gravity = 0.5;
 let velocityY = 0;
 let velocityX = 0;
 const jumpStrength = 10;
+let respawnInvulnerable = false;
+
+//spawnpoint
+const spawnX = 38;
+const spawnY = 500;
+let isLoopRunning = false;
+
+function resetPlayer() {
+  // This function is now just setting the player pos and states without explosion
+  playerX = spawnX;
+  playerY = spawnY;
+  velocityX = 0;
+  velocityY = 0;
+  player.style.left = playerX + "px";
+  player.style.top = playerY + "px";
+  player.style.display = "block";
+  isLeftPressed = false;
+  isRightPressed = false;
+  respawnInvulnerable = true;
+
+  setTimeout(() => {
+    respawnInvulnerable = false;
+  }, 1000);  // 1 second invulnerability
+}
 
 function clamp(value, min, max) {
-return Math.min(Math.max(value, min), max);
+  return Math.min(Math.max(value, min), max);
 }
 
 function isOnGroundOrObstacle() {
@@ -41,8 +65,18 @@ function isOnGroundOrObstacle() {
   return false;
 }
 
-function createExplosion(x, y) {
+/**
+ * Unified particle explosion function.
+ * mode = "explode" or "reassemble"
+ */
+function createParticleExplosion(x, y, mode = "explode", onComplete = null) {
   const container = document.getElementById("explosion-container");
+
+  // Clear previous particles
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
   const particles = [];
   const particleCount = 20;
 
@@ -54,38 +88,75 @@ function createExplosion(x, y) {
     const angle = (Math.PI * 2 * i) / particleCount;
     const speed = Math.random() * 5 + 2;
 
-    particles.push({
-      element: particle,
-      x,
-      y,
-      velocityX: Math.cos(angle) * speed,
-      velocityY: Math.sin(angle) * speed,
-      life: 60, // frames
-      opacity: 1,
-    });
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+
+    if (mode === "explode") {
+      particles.push({
+        element: particle,
+        x: 0,
+        y: 0,
+        velocityX: vx,
+        velocityY: vy,
+        life: 60,
+        phase: 'explode',
+      });
+      particle.style.left = x + "px";
+      particle.style.top = y + "px";
+      particle.style.transform = `translate(0px, 0px)`;
+
+    } else if (mode === "reassemble") {
+      particles.push({
+        element: particle,
+        x: vx * 30,       // start dispersed
+        y: vy * 30,
+        velocityX: -vx,   // moving towards center
+        velocityY: -vy,
+        life: 60,
+        phase: 'reassemble',
+      });
+      particle.style.left = x + "px";
+      particle.style.top = y + "px";
+      particle.style.transform = `translate(${vx * 30}px, ${vy * 30}px)`;
+    }
   }
 
   function animate() {
+    let allDone = true;
+
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.velocityX;
-      p.y += p.velocityY;
-      p.velocityY += 0.15; // gravity for particles
-      p.life--;
-      p.opacity -= 0.02;
-      if (p.opacity < 0) p.opacity = 0;
+
+      if (p.phase === 'explode') {
+        p.x += p.velocityX;
+        p.y += p.velocityY;
+        p.velocityY += 0.15;  // gravity effect
+        p.life--;
+        if (p.life <= 0) {
+          p.velocityX = 0;
+          p.velocityY = 0;
+        } else {
+          allDone = false;
+        }
+      } else if (p.phase === 'reassemble') {
+        p.x += p.velocityX;
+        p.y += p.velocityY;
+        p.life--;
+        if (p.life > 0) {
+          allDone = false;
+        }
+      }
 
       p.element.style.transform = `translate(${p.x}px, ${p.y}px)`;
-      p.element.style.opacity = p.opacity;
-
-      if (p.life <= 0) {
-        p.element.remove();
-        particles.splice(i, 1);
-      }
     }
 
-    if (particles.length > 0) {
+    if (!allDone) {
       requestAnimationFrame(animate);
+    } else {
+      particles.forEach(p => p.element.remove());
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
     }
   }
 
@@ -109,7 +180,6 @@ function checkGoalReached() {
 function startNextLevel() {
   ground.innerHTML = ''; // Clear the ground area
 
-  // Show message
   const message = document.createElement('div');
   message.style.color = 'white';
   message.style.textAlign = 'center';
@@ -126,13 +196,11 @@ function startNextLevel() {
 function loadLevel2() {
   ground.innerHTML = '';
 
-  // Create player
   const newPlayer = document.createElement('div');
   newPlayer.id = 'player';
   newPlayer.className = 'player';
   ground.appendChild(newPlayer);
 
-  // Create new obstacles - example positions
   const obstacleA = document.createElement('div');
   obstacleA.className = 'obstacle';
   obstacleA.style.position = 'absolute';
@@ -153,23 +221,19 @@ function loadLevel2() {
   obstacleB.style.backgroundColor = 'gold';
   ground.appendChild(obstacleB);
 
-  // Update global references
   playerX = 0;
   playerY = 0;
   velocityX = 0;
   velocityY = 0;
 
-  // Update player variable to the new element
   player = document.getElementById('player');
 
-  // Update obstacles array
   obstacles.length = 0;
   const newObs = ground.querySelectorAll('.obstacle');
   obstacles.push(...newObs);
 
-  loop(); // restart game loop
+  loop();
 }
-
 
 function loop() {
   const groundHeight = ground.clientHeight;
@@ -178,12 +242,10 @@ function loop() {
   const maxX = ground.clientWidth - playerWidth;
   const maxY = groundHeight - playerHeight;
 
-  // === Apply player input to velocityX with friction ===
   if (isRightPressed) velocityX = speed;
   else if (isLeftPressed) velocityX = -speed;
-  else velocityX *= 0.8; // friction slows the player when no input
+  else velocityX *= 0.8;
 
-  // === Predict next positions ===
   velocityY += gravity;
 
   let nextPlayerX = clamp(playerX + velocityX, 0, maxX);
@@ -197,17 +259,13 @@ function loop() {
   let collidedOnTop = false;
 
   for (const obs of obstacles) {
-    if(obs.id === "obstacle3"){
-      //skip lava collision check
-      continue;
-    }
+    if(obs.id === "obstacle3") continue;
 
     const obsTop = obs.offsetTop;
     const obsLeft = obs.offsetLeft;
     const obsRight = obsLeft + obs.offsetWidth;
     const obsBottom = obsTop + obs.offsetHeight;
 
-    // === Vertical collision: landing on top ===
     if (
       playerBottom <= obsTop &&
       nextPlayerY + playerHeight >= obsTop &&
@@ -218,7 +276,6 @@ function loop() {
       nextPlayerY = obsTop - playerHeight;
 
       if (obs.classList.contains("side-bouncy")) {
-        // You can adjust this per obstacle in future using data-angle
         const angleDeg = 20;
         const power = 35;
         const angleRad = angleDeg * (Math.PI / 180);
@@ -235,7 +292,6 @@ function loop() {
       break;
     }
 
-    // === Hitting head on bottom ===
     if (
       playerTop >= obsBottom &&
       nextPlayerY <= obsBottom &&
@@ -248,13 +304,11 @@ function loop() {
       break;
     }
 
-    // === Horizontal collision ===
     const isVerticallyAligned =
       nextPlayerY + playerHeight > obsTop &&
       nextPlayerY < obsBottom;
 
     if (isVerticallyAligned) {
-      // Moving right into left side
       if (
         isRightPressed &&
         playerX + playerWidth <= obsLeft &&
@@ -264,7 +318,6 @@ function loop() {
         velocityX = 0;
       }
 
-      // Moving left into right side
       if (
         isLeftPressed &&
         playerX >= obsRight &&
@@ -276,67 +329,72 @@ function loop() {
     }
   }
 
-  // === Floor collision ===
   if (nextPlayerY > maxY) {
     nextPlayerY = maxY;
     velocityY = 0;
     collidedOnTop = true;
   }
 
-  // === Deadly obstacle collision check ===
-  const playerRect = player.getBoundingClientRect();
-
+  // Deadly obstacle collision check
   for (const obs of obstacles) {
-  if (!obs.classList.contains("obstacle-dead")) continue;
+    if (!obs.classList.contains("obstacle-dead")) continue;
 
-  const hitbox = obs.querySelector(".hitbox");
-  if (!hitbox) continue;
+    const hitbox = obs.querySelector(".hitbox");
+    if (!hitbox) continue;
 
-  const hitboxLeft = hitbox.offsetLeft + obs.offsetLeft;
-  const hitboxTop = hitbox.offsetTop + obs.offsetTop;
-  const hitboxRight = hitboxLeft + hitbox.offsetWidth;
-  const hitboxBottom = hitboxTop + hitbox.offsetHeight;
+    const hitboxLeft = hitbox.offsetLeft + obs.offsetLeft;
+    const hitboxTop = hitbox.offsetTop + obs.offsetTop;
+    const hitboxRight = hitboxLeft + hitbox.offsetWidth;
+    const hitboxBottom = hitboxTop + hitbox.offsetHeight;
 
-  const playerLeft = playerX;
-  const playerRight = playerX + player.offsetWidth;
-  const playerTop = playerY;
-  const playerBottom = playerY + player.offsetHeight;
+    const playerLeft = playerX;
+    const playerRight = playerX + player.offsetWidth;
+    const playerTop = playerY;
+    const playerBottom = playerY + player.offsetHeight;
 
-  const isColliding =
-    playerRight > hitboxLeft &&
-    playerLeft < hitboxRight &&
-    playerBottom > hitboxTop &&
-    playerTop < hitboxBottom;
+    const isColliding =
+      playerRight > hitboxLeft &&
+      playerLeft < hitboxRight &&
+      playerBottom > hitboxTop &&
+      playerTop < hitboxBottom;
 
-  if (isColliding) {
-    console.log("💀 Player hit deadly obstacle!");
+    if (!respawnInvulnerable && isColliding) {
+      console.log("💀 Player hit deadly obstacle!");
 
-    player.style.display = "none";
-    // Center of the player for explosion position
-    const explosionX = playerLeft + player.offsetWidth / 2;
-    const explosionY = playerTop + player.offsetHeight / 2;
+      player.style.display = "none";
 
-    createExplosion(explosionX, explosionY);
+      const explosionX = playerX + player.offsetWidth / 2;
+      const explosionY = playerY + player.offsetHeight / 2;
 
-    setTimeout(() => location.reload(), 1000); 
+      // 1. Normal explosion on death
+      createParticleExplosion(explosionX, explosionY, "explode", () => {
+        // 2. After 500 ms delay, reverse explosion at spawn
+        setTimeout(() => {
+          const respawnX = spawnX + player.offsetWidth / 2;
+          const respawnY = spawnY + player.offsetHeight / 2;
 
-    return; 
+          createParticleExplosion(respawnX, respawnY, "reassemble", () => {
+            resetPlayer();
+            loop();
+          });
+        }, 500); // adjust if needed
+      });
+
+      return;
+    }
   }
-}
 
-
-  // === Apply new positions ===
   playerX = nextPlayerX;
   playerY = nextPlayerY;
 
   player.style.left = Math.round(playerX) + "px";
   player.style.top = Math.round(playerY) + "px";
 
-if (checkGoalReached()) {
-  console.log("goal");
-  startNextLevel();
-  return; // stop the loop here
-}
+  if (checkGoalReached()) {
+    console.log("goal");
+    startNextLevel();
+    return;
+  }
 
   requestAnimationFrame(loop);
 }
@@ -356,4 +414,5 @@ document.addEventListener("keyup", (e) => {
   if (e.key === "ArrowLeft") isLeftPressed = false;
 });
 
+resetPlayer();
 loop();
