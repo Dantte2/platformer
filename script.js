@@ -90,7 +90,7 @@ function createParticleExplosion(x, y, mode = "explode", onComplete = null) {
         y: 0,
         velocityX: vx,
         velocityY: vy,
-        life: 1,
+        life: 0.3,
         phase: "explode",
       });
       particle.style.left = x + "px";
@@ -103,7 +103,7 @@ function createParticleExplosion(x, y, mode = "explode", onComplete = null) {
         y: vy * 0.6,
         velocityX: -vx,
         velocityY: -vy,
-        life: 1,
+        life: 0.5,
         phase: "reassemble",
       });
       particle.style.left = x + "px";
@@ -159,22 +159,36 @@ function createParticleExplosion(x, y, mode = "explode", onComplete = null) {
 
 // Check if player overlaps the goal
 function checkGoalReached() {
-  const playerRect = player.getBoundingClientRect();
   const goal = document.querySelector(".obstacle-goal");
+  if (!goal) return false;
 
-  if (!goal) {
-    return false;
+  const goalLeft = goal.offsetLeft;
+  const goalTop = goal.offsetTop;
+  const goalRight = goalLeft + goal.offsetWidth;
+  const goalBottom = goalTop + goal.offsetHeight;
+
+  const playerLeft = playerX;
+  const playerTop = playerY;
+  const playerRight = playerLeft + player.offsetWidth;
+  const playerBottom = playerTop + player.offsetHeight;
+
+  const reached = (
+    playerRight > goalLeft &&
+    playerLeft < goalRight &&
+    playerBottom >= goalTop &&
+    playerTop < goalBottom
+  );
+
+  if (reached) {
+    console.log("Goal reached!");
   }
 
-  const goalRect = goal.getBoundingClientRect();
-
-  return (
-    playerRect.right > goalRect.left &&
-    playerRect.left < goalRect.right &&
-    playerRect.bottom > goalRect.top &&
-    playerRect.top < goalRect.bottom
-  );
+  return reached;
 }
+
+
+
+
 
 // Show "Level Complete" and load level 2 after delay
 function startNextLevel() {
@@ -391,8 +405,11 @@ function loop(currentTime) {
   player.style.left = Math.round(playerX) + "px";
   player.style.top = Math.round(playerY) + "px";
 
+  checkGoalReached();
+
   // Check for level completion
   if (checkGoalReached()) {
+    console.log("goal");
     startNextLevel();
     return;
   }
