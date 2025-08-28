@@ -186,17 +186,13 @@ function checkGoalReached() {
   return reached;
 }
 
-
-
-
-
 // Show "Level Complete" and load level 2 after delay
 function startNextLevel() {
   ground.innerHTML = "";
 
   const message = document.createElement("div");
   message.style = "color:white;text-align:center;padding-top:280px;font-size:24px;";
-  message.textContent = "Level Complete! Loading next level...";
+  message.textContent = "Loading level 2";
   ground.appendChild(message);
 
   setTimeout(loadLevel2, 2000);
@@ -215,11 +211,11 @@ function loadLevel2() {
   obstacleA.className = "obstacle";
   Object.assign(obstacleA.style, {
     position: "absolute",
-    left: "100px",
+    left: "1px",
     top: "550px",
     width: "100px",
-    height: "30px",
-    backgroundColor: "gray",
+    height: "20px",
+    backgroundColor: "white",
   });
   ground.appendChild(obstacleA);
 
@@ -227,14 +223,45 @@ function loadLevel2() {
   obstacleB.className = "obstacle obstacle-goal";
   Object.assign(obstacleB.style, {
     position: "absolute",
-    left: "600px",
-    top: "550px",
+    left: "700px",
+    top: "200px",
     width: "100px",
-    height: "30px",
+    height: "20px",
     backgroundColor: "gold",
   });
   ground.appendChild(obstacleB);
 
+  //lvl2 deadly obstacle 
+  const obstacleC = document.createElement("div");
+  obstacleC.className = "obstacle-dead obstacle3";
+  Object.assign(obstacleC.style, {
+    position: "absolute",
+    left: "0",
+    top: "580px",
+    width: "100%",
+    height: "20px",
+    background: "linear-gradient(45deg, #ff4500, #ff8c00, #ff4500)",
+    backgroundSize: "200% 200%",
+    animation: "lavaFlow 3s linear infinite",
+    boxShadow: "0 0 20px #ff4500",
+    zIndex: "10",
+  });
+
+  //lvl2 deadly obstacle hitbox
+  const hitbox = document.createElement("div");
+  hitbox.className = "hitbox";
+  Object.assign(hitbox.style, {
+    position: "absolute",
+    width: "100%",
+    height: "20px",
+    top: "13px",
+    left: "0",
+    backgroundColor: "white",
+  });
+  obstacleC.appendChild(hitbox);
+
+  ground.appendChild(obstacleC);
+  
   playerX = 0;
   playerY = 0;
   velocityX = 0;
@@ -242,7 +269,7 @@ function loadLevel2() {
   player = document.getElementById("player");
 
   obstacles.length = 0;
-  obstacles.push(...ground.querySelectorAll(".obstacle"));
+  obstacles.push(...ground.querySelectorAll(".obstacle:not(.obstacle-dead)"));
 
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -283,7 +310,7 @@ function loop(currentTime) {
 
   // Collision detection with obstacles
   for (const obs of obstacles) {
-    if (obs.id === "obstacle3") continue;
+      if (obs.id === "obstacle3") continue;
 
     const obsTop = obs.offsetTop;
     const obsLeft = obs.offsetLeft;
@@ -376,6 +403,7 @@ function loop(currentTime) {
       playerTopNow < hitboxBottom;
 
     if (!respawnInvulnerable && isColliding) {
+      console.log("dead");
       // Player death: hide, explode, respawn with animation
       player.style.display = "none";
 
@@ -440,5 +468,6 @@ document.addEventListener("keyup", (e) => {
 });
 
 // Initialize player and start loop
+// loadLevel2();
 resetPlayer();
 requestAnimationFrame(loop);
